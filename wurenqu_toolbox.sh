@@ -18,7 +18,7 @@ ST_SECOND_DIR="$HOME/SillyTavern-2"
 ST_DIR="$ST_MAIN_DIR"
 CURRENT_INSTANCE="主程序 (SillyTavern)"
 
-REPO_URL="https://github.com/SillyTavern/SillyTavern.git"
+REPO_URL="https://gh-proxy.com/https://github.com/SillyTavern/SillyTavern.git"
 BACKUP_DIR="$HOME/st_backups"
 SCRIPT_VERSION="v1.3.5"
 SCRIPT_URL="https://raw.githubusercontent.com/liyifeng78789-creator/jiuguan_wurenqu/main/wurenqu_toolbox.sh"
