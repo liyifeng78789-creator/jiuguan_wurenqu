@@ -21,7 +21,7 @@ CURRENT_INSTANCE="主程序 (SillyTavern)"
 REPO_URL="https://github.com/SillyTavern/SillyTavern.git"
 BACKUP_DIR="$HOME/st_backups"
 SCRIPT_VERSION="v1.3.5"
-SCRIPT_URL="https://raw.githubusercontent.com/mc10091009/st_manager.sh/main/angler_toolbox.sh"
+SCRIPT_URL="https://raw.githubusercontent.com/liyifeng78789-creator/jiuguan_wurenqu/main/wurenqu_toolbox.sh"
 TAG_DISPLAY_LIMIT=10
 
 # 防止使用 source 或 . 运行脚本
