@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # 无人区 - SillyTavern Termux 管理脚本
+# 推荐启动命令:
+# bash <(curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/liyifeng78789-creator/jiuguan_wurenqu/main/wurenqu_toolbox.sh)
 
 # 颜色定义
 GREEN='\033[0;32m'
@@ -19,9 +21,11 @@ ST_DIR="$ST_MAIN_DIR"
 CURRENT_INSTANCE="主程序 (SillyTavern)"
 
 REPO_URL="https://gh-proxy.com/https://github.com/SillyTavern/SillyTavern.git"
+REPO_URL_DIRECT="https://github.com/SillyTavern/SillyTavern.git"
 BACKUP_DIR="$HOME/st_backups"
-SCRIPT_VERSION="v1.3.5"
-SCRIPT_URL="https://raw.githubusercontent.com/liyifeng78789-creator/jiuguan_wurenqu/main/wurenqu_toolbox.sh"
+SCRIPT_VERSION="v1.3.6"
+SCRIPT_URL="https://gh-proxy.com/https://raw.githubusercontent.com/liyifeng78789-creator/jiuguan_wurenqu/main/wurenqu_toolbox.sh"
+SCRIPT_URL_DIRECT="https://raw.githubusercontent.com/liyifeng78789-creator/jiuguan_wurenqu/main/wurenqu_toolbox.sh"
 TAG_DISPLAY_LIMIT=10
 
 # 防止使用 source 或 . 运行脚本
@@ -44,6 +48,42 @@ function print_warn() {
 
 function print_error() {
     echo -e "${RED}[ERROR] $1${NC}"
+}
+
+function download_file() {
+    local target="$1"
+    shift
+    local url
+
+    for url in "$@"; do
+        print_info "正在下载: $url"
+        rm -f "${target}.tmp"
+        if curl --fail --silent --show-error --location \
+            --connect-timeout 15 --retry 2 --retry-delay 2 \
+            "$url" -o "${target}.tmp"; then
+            mv "${target}.tmp" "$target"
+            return 0
+        fi
+        print_warn "当前下载地址连接失败，正在尝试备用地址..."
+    done
+
+    rm -f "${target}.tmp"
+    return 1
+}
+
+function clone_sillytavern() {
+    local url
+
+    for url in "$REPO_URL" "$REPO_URL_DIRECT"; do
+        print_info "正在通过以下地址克隆: $url"
+        rm -rf "$ST_DIR"
+        if git clone "$url" "$ST_DIR"; then
+            return 0
+        fi
+        print_warn "当前仓库地址连接失败，正在尝试备用地址..."
+    done
+
+    return 1
 }
 
 
@@ -127,13 +167,28 @@ function init_environment() {
     if [ ${#MISSING_DEPS[@]} -ne 0 ]; then
         print_warn "发现缺失依赖: ${MISSING_DEPS[*]}，正在安装..."
         
-        # 更新 Termux 包
-        print_info "正在更新 Termux 包 (pkg upgrade)..."
-        yes | pkg upgrade
-        
-        # 安装依赖
-        print_info "正在安装缺失依赖..."
-        pkg update && pkg install curl git nodejs python build-essential tar jq lsof psmisc procps -y
+        print_info "正在更新 Termux 软件源..."
+        if ! yes | pkg update; then
+            print_error "pkg update 失败，请检查 Termux 网络后重试。"
+            exit 1
+        fi
+
+        print_info "正在升级 Termux 软件包..."
+        if ! yes | pkg upgrade; then
+            print_error "pkg upgrade 失败，请检查 Termux 软件源。"
+            exit 1
+        fi
+
+        local packages=(curl git python build-essential tar jq lsof psmisc procps)
+        if ! command -v node &> /dev/null; then
+            packages+=(nodejs-lts)
+        fi
+
+        print_info "正在安装依赖: ${packages[*]}"
+        if ! yes | pkg install "${packages[@]}"; then
+            print_error "依赖安装失败，可手动执行: yes | pkg install git nodejs-lts"
+            exit 1
+        fi
         
         print_info "依赖安装完成！"
     else
@@ -145,7 +200,7 @@ function init_environment() {
         NODE_VERSION=$(node -v)
         print_info "Node.js 版本: $NODE_VERSION"
     else
-        print_error "Node.js 安装失败，请尝试手动安装: pkg install nodejs"
+        print_error "Node.js 安装失败，请尝试手动安装: yes | pkg install nodejs-lts"
         exit 1
     fi
     
@@ -302,14 +357,19 @@ function install_st() {
     # 环境已在启动时检查，此处再次确认以防万一
     if ! command -v git &> /dev/null; then
         print_warn "Git 未找到，尝试重新安装..."
-        pkg install git -y
+        if ! yes | pkg install git; then
+            print_error "Git 安装失败，请先执行: yes | pkg install git"
+            return
+        fi
     fi
 
     print_info "正在克隆 SillyTavern 仓库..."
-    if git clone "$REPO_URL" "$ST_DIR"; then
+    if clone_sillytavern; then
         print_info "克隆成功！"
     else
-        print_error "克隆失败，请检查网络连接。"
+        print_error "代理和 GitHub 直连均克隆失败。"
+        print_info "可手动执行以下命令后重试:"
+        echo "git clone $REPO_URL $ST_DIR"
         return
     fi
 
@@ -1002,17 +1062,18 @@ function update_self() {
     # 使用用户提供的 GitHub 仓库
     SCRIPT_NAME="angler_toolbox.sh"
     TARGET_PATH="$HOME/$SCRIPT_NAME"
+    DOWNLOAD_PATH="${TARGET_PATH}.download"
     
-    if curl -s "$SCRIPT_URL" -o "${TARGET_PATH}.tmp"; then
+    if download_file "$DOWNLOAD_PATH" "$SCRIPT_URL" "$SCRIPT_URL_DIRECT"; then
         # 简单检查下载的文件是否有效
-        if grep -q "#!/bin/bash" "${TARGET_PATH}.tmp"; then
-            mv "${TARGET_PATH}.tmp" "$TARGET_PATH"
+        if grep -q "#!/bin/bash" "$DOWNLOAD_PATH"; then
+            mv "$DOWNLOAD_PATH" "$TARGET_PATH"
             chmod +x "$TARGET_PATH"
             print_info "脚本更新成功！正在重启..."
             # 传递参数 --skip-init 以跳过环境检查
             exec bash "$TARGET_PATH" --skip-init
         else
-            rm "${TARGET_PATH}.tmp"
+            rm -f "$DOWNLOAD_PATH"
             print_error "下载的文件似乎无效，取消更新。"
         fi
     else
@@ -1085,9 +1146,12 @@ function install_script() {
         # 如果当前是管道运行 (curl | bash)，且目标不存在，则下载
         elif [ ! -f "$SCRIPT_PATH" ]; then
              print_info "正在下载脚本到 $SCRIPT_PATH ..."
-             if curl -s "$SCRIPT_URL" -o "$SCRIPT_PATH"; then
+             local download_path="${SCRIPT_PATH}.download"
+             if download_file "$download_path" "$SCRIPT_URL" "$SCRIPT_URL_DIRECT" && grep -q "#!/bin/bash" "$download_path"; then
+                 mv "$download_path" "$SCRIPT_PATH"
                  chmod +x "$SCRIPT_PATH"
              else
+                 rm -f "$download_path"
                  print_error "下载失败，无法安装脚本。"
              fi
         fi
