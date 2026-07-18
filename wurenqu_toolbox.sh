@@ -23,10 +23,21 @@ CURRENT_INSTANCE="主程序 (SillyTavern)"
 REPO_URL="https://gh-proxy.com/https://github.com/SillyTavern/SillyTavern.git"
 REPO_URL_DIRECT="https://github.com/SillyTavern/SillyTavern.git"
 BACKUP_DIR="$HOME/st_backups"
-SCRIPT_VERSION="v1.3.6"
+SCRIPT_VERSION="v1.3.7"
 SCRIPT_URL="https://gh-proxy.com/https://raw.githubusercontent.com/liyifeng78789-creator/jiuguan_wurenqu/main/wurenqu_toolbox.sh"
 SCRIPT_URL_DIRECT="https://raw.githubusercontent.com/liyifeng78789-creator/jiuguan_wurenqu/main/wurenqu_toolbox.sh"
 TAG_DISPLAY_LIMIT=10
+
+function ensure_working_directory() {
+    if ! pwd -P &>/dev/null; then
+        if ! cd "$HOME"; then
+            echo "[ERROR] 当前工作目录已失效，且无法切换到 HOME: $HOME" >&2
+            exit 1
+        fi
+    fi
+}
+
+ensure_working_directory
 
 # 防止使用 source 或 . 运行脚本
 (return 0 2>/dev/null) && SOURCED=1 || SOURCED=0
@@ -73,6 +84,11 @@ function download_file() {
 
 function clone_sillytavern() {
     local url
+
+    if ! cd "$HOME"; then
+        print_error "无法切换到 HOME 目录: $HOME"
+        return 1
+    fi
 
     for url in "$REPO_URL" "$REPO_URL_DIRECT"; do
         print_info "正在通过以下地址克隆: $url"
@@ -347,6 +363,7 @@ function install_st() {
         read -p "是否删除旧目录并重新安装? (y/n): " choice
         if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
             print_info "正在删除旧目录..."
+            cd "$HOME" || exit
             rm -rf "$ST_DIR"
         else
             print_info "取消安装。"
